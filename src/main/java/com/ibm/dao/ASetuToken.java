@@ -1,9 +1,9 @@
 package com.ibm.dao;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import org.springframework.data.annotation.Id;
 
-import java.util.Date;
-
+@JsonIgnoreProperties(ignoreUnknown = true)
 public class ASetuToken {
     @Id
     private String token;
