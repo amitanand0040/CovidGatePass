@@ -3,6 +3,7 @@ package com.ibm.service;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.ibm.dao.ASetuToken;
+import com.ibm.dao.Citizen;
 import com.ibm.dao.RequestTracker;
 import com.ibm.model.UserCredentials;
 import com.ibm.model.UserDetails;
@@ -10,6 +11,9 @@ import com.ibm.repository.CitizenRepository;
 import com.ibm.repository.RequestTrackerRepository;
 import com.ibm.repository.TokenRepository;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.mongodb.core.MongoOperations;
+import org.springframework.data.mongodb.core.query.Criteria;
+import org.springframework.data.mongodb.core.query.Query;
 import org.springframework.http.*;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestTemplate;
@@ -30,13 +34,17 @@ public class CovidGatePassService {
     @Autowired
     private RequestTrackerRepository trackerRepository;
 
-    public void extractUserStatus(String mobileNumber) {
+    @Autowired
+    MongoOperations mongoOperations;
+
+    public String extractUserStatus(String mobileNumber) {
         // Extract token to invoke Aarogya Setu API call
         String token = this.extractToken();
         System.out.println(token);
 
         RestTemplate restTemplate = new RestTemplate();
         RequestTracker requestTracker = new RequestTracker();
+        String requestId = null;
 
         String resourceUrl = "https://api.aarogyasetu.gov.in/userstatus";
         String uniqueID = UUID.randomUUID().toString().toUpperCase().replace("-", "");
@@ -57,22 +65,35 @@ public class CovidGatePassService {
             ResponseEntity<String> response = restTemplate.exchange(resourceUrl, HttpMethod.POST, entity, String.class);
 
             RequestTracker requestIdTracker = new ObjectMapper().readValue(response.getBody().toString(), RequestTracker.class);
-            String reqID = requestIdTracker.getRequestId();
+            requestId = requestIdTracker.getRequestId();
+
+            // Update RequestTracker repository
+            if(requestId !=null) {
+                requestTracker.setMobileNumber(mobileNumber);
+                requestTracker.setTrace_id(uniqueID);
+                requestTracker.setRequestId(requestId);
+                requestTracker.setDate(Instant.now());
+                requestTracker.setRequest_status("PENDING");
+                trackerRepository.save(requestIdTracker);
+            }
 
 
-            System.out.println(response.getBody().toString());
+/*            // Update Citizen repository with request ID
+            Query query = new Query();
+            query.addCriteria(Criteria.where("mobileNumber").is(mobileNumber));
+            //query.fields().include("mobileNumber");
 
-            requestTracker.setMobileNumber(mobileNumber);
-            requestTracker.setTrace_id(uniqueID);
-            requestTracker.setRequestId(reqID);
-            requestIdTracker.setDate(Instant.now());
-            requestIdTracker.setRequest_status("PENDING");
+            Citizen citizen = mongoOperations.findOne(query, Citizen.class);
+            citizen.setRequestId(requestId);
+            mongoOperations.save(citizen);*/
 
-            trackerRepository.save(requestIdTracker);
 
         } catch (Exception e) {
             e.printStackTrace();
         }
+
+        return  requestId;
+
     }
 
     public String extractToken()  {

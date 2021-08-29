@@ -27,15 +27,17 @@ public class CovidGatePassController {
     @Autowired
     private CovidGatePassService covidGatePassService;
 
-    @GetMapping("/getCovidStatus/{mobileNumber}")
-    public String getCovidStatus(@PathVariable String mobileNumber) {
+    @GetMapping("/requestCovidStatus/{mobileNumber}")
+    public String requestCovidStatus(@PathVariable String mobileNumber) {
         String json = null;
+        String requestId = null;
         ObjectMapper mapper = new ObjectMapper();
         Citizen citizenInfo = citizenRepository.findById(mobileNumber).orElse(null);
 
         if(citizenInfo ==null){
-            covidGatePassService.extractUserStatus(mobileNumber);
-            citizenInfo = new Citizen(mobileNumber, "NA", "NOT_AVAILABLE");
+            requestId = covidGatePassService.extractUserStatus(mobileNumber);
+
+            //citizenInfo = new Citizen(mobileNumber, "NA", "NOT_AVAILABLE");
         }
 
         try {

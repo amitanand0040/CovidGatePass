@@ -4,7 +4,6 @@ import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import org.springframework.data.annotation.Id;
 
 import java.time.Instant;
-import java.util.Date;
 
 @JsonIgnoreProperties(ignoreUnknown = true)
 public class RequestTracker {

@@ -8,6 +8,7 @@ public class Citizen {
     private String mobileNumber;
     private String name;
     private String covidStatus;
+    private String requestId;
 
     public Citizen() {
     }
@@ -16,6 +17,14 @@ public class Citizen {
         this.mobileNumber = mobileNumber;
         this.name = name;
         this.covidStatus = covidStatus;
+    }
+
+    public String getRequestId() {
+        return requestId;
+    }
+
+    public void setRequestId(String requestId) {
+        this.requestId = requestId;
     }
 
     @Override
