@@ -8,31 +8,19 @@ import java.time.Instant;
 @JsonIgnoreProperties(ignoreUnknown = true)
 public class RequestTracker {
     @Id
-    private String mobileNumber;
     private String requestId;
     private String trace_id;
     private String request_status;
     private String as_status;
-    private Instant date;
 
     public RequestTracker() {
     }
 
-    public RequestTracker(String mobileNumber, String request_id, String trace_id, String request_status, String as_status, Instant date) {
-        this.mobileNumber = mobileNumber;
+    public RequestTracker(String request_id, String trace_id, String request_status, String as_status) {
         this.requestId = request_id;
         this.trace_id = trace_id;
         this.request_status = request_status;
         this.as_status = as_status;
-        this.date = date;
-    }
-
-    public String getMobileNumber() {
-        return mobileNumber;
-    }
-
-    public void setMobileNumber(String mobileNumber) {
-        this.mobileNumber = mobileNumber;
     }
 
     public String getRequestId() {
@@ -65,13 +53,5 @@ public class RequestTracker {
 
     public void setAs_status(String as_status) {
         this.as_status = as_status;
-    }
-
-    public Instant getDate() {
-        return date;
-    }
-
-    public void setDate(Instant date) {
-        this.date = date;
     }
 }

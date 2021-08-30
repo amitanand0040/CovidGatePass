@@ -37,6 +37,8 @@ public class CovidGatePassController {
         if(citizenInfo ==null){
             requestId = covidGatePassService.extractUserStatus(mobileNumber);
 
+            citizenInfo = citizenRepository.findByRequestId(requestId);
+
             //citizenInfo = new Citizen(mobileNumber, "NA", "NOT_AVAILABLE");
         }
 

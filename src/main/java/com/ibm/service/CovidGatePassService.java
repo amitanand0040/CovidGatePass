@@ -2,9 +2,11 @@ package com.ibm.service;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.ibm.Exception.UserStatusException;
 import com.ibm.dao.ASetuToken;
 import com.ibm.dao.Citizen;
 import com.ibm.dao.RequestTracker;
+import com.ibm.model.ASetu_AsStatus;
 import com.ibm.model.UserCredentials;
 import com.ibm.model.UserDetails;
 import com.ibm.repository.CitizenRepository;
@@ -69,31 +71,28 @@ public class CovidGatePassService {
 
             // Update RequestTracker repository
             if(requestId !=null) {
-                requestTracker.setMobileNumber(mobileNumber);
                 requestTracker.setTrace_id(uniqueID);
                 requestTracker.setRequestId(requestId);
-                requestTracker.setDate(Instant.now());
                 requestTracker.setRequest_status("PENDING");
                 trackerRepository.save(requestIdTracker);
             }
 
 
-/*            // Update Citizen repository with request ID
+            // Update Citizen repository with request ID
             Query query = new Query();
             query.addCriteria(Criteria.where("mobileNumber").is(mobileNumber));
             //query.fields().include("mobileNumber");
 
             Citizen citizen = mongoOperations.findOne(query, Citizen.class);
+            citizen.setMobileNumber(mobileNumber);
+            citizen.setCovidStatus("PENDING");
             citizen.setRequestId(requestId);
-            mongoOperations.save(citizen);*/
-
+            mongoOperations.save(citizen);
 
         } catch (Exception e) {
             e.printStackTrace();
         }
-
-        return  requestId;
-
+        return requestId;
     }
 
     public String extractToken()  {
@@ -157,4 +156,57 @@ public class CovidGatePassService {
         return response;
     }
 
+    private Citizen fetchUserStatusFromASetu(String requestId){
+        // Extract token to invoke Aarogya Setu API call
+        String token = this.extractToken();
+        System.out.println(token);
+
+        Citizen citizen = new Citizen();
+
+        RestTemplate restTemplate = new RestTemplate();
+
+        String resourceUrl = "https://api.aarogyasetu.gov.in/userstatusbyreqid";
+        String uniqueID = UUID.randomUUID().toString().toUpperCase().replace("-", "");
+
+        HttpHeaders headers = new HttpHeaders();
+        headers.setAccept(Collections.singletonList(MediaType.APPLICATION_JSON));
+        headers.setContentType(MediaType.APPLICATION_JSON);
+        headers.set("x-api-key", "gvhed11S9z53uDfZvsEni4ScuJx9yu8T9dd3BjL1");
+        headers.set("Authorization", token);
+
+        try {
+            HttpEntity<String> entity = new HttpEntity<>(requestId, headers);
+            ResponseEntity<RequestTracker> response = restTemplate.exchange(resourceUrl, HttpMethod.POST, entity, RequestTracker.class);
+
+            if(response.getStatusCode().equals(HttpStatus.OK)){
+                RequestTracker status =  new ObjectMapper().readValue(response.getBody().toString(), RequestTracker.class);
+                status.getAs_status();
+
+                String temp = "eyJhbGciOiJIUzI1NiJ9.eyJhc19zdGF0dXMiOnsiY29sb3JfY29kZSI6IiMzQUE4NEMiLCJtZXNzYWdlIjoiU2FtcGxlIHVzZXIgKCs5MTk5eHh4eHh4eHgpIGlzIHNhZmUiLCJtb2JpbGVfbm8iOiIrOTE5OXh4eHh4eHh4IiwibmFtZSI6IlNhbXBsZSBVc2VyIiwic3RhdHVzX2NvZGUiOjMwMH19.AYVj3tynLeob2ZqFxOkQZ4D5vWXsUzFjxjIfHYGYoDU";
+
+               /* Citizen citizen = new Citizen();
+                citizen.setName(status.getName());*/
+            }else if(response.getStatusCode().equals(HttpStatus.BAD_REQUEST) || response.getStatusCode().equals(HttpStatus.INTERNAL_SERVER_ERROR)){
+                // TODO handle error message
+                throw new Exception();
+            }
+
+
+
+           /* // Update Citizen repository with request ID
+            Query query = new Query();
+            query.addCriteria(Criteria.where("mobileNumber").is(mobileNumber));
+            //query.fields().include("mobileNumber");
+
+            Citizen citizen = mongoOperations.findOne(query, Citizen.class);
+            citizen.setMobileNumber(mobileNumber);
+            citizen.setCovidStatus("PENDING");
+            citizen.setRequestId(requestId);
+            mongoOperations.save(citizen);*/
+
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        return citizen;
+    }
 }
