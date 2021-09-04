@@ -1,0 +1,38 @@
+{
+	"info": {
+		"_postman_id": "6033ce9b-f2c2-42e6-b363-2574076afc32",
+		"name": "CovidGatePass",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"item": [
+		{
+			"name": "requestCovidStatus",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "http://localhost:8080/requestCovidStatus/8969530042",
+					"protocol": "http",
+					"host": [
+						"localhost"
+					],
+					"port": "8080",
+					"path": [
+						"requestCovidStatus",
+						"8969530042"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "getStatusByReqId",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": null
+			},
+			"response": []
+		}
+	]
+}
