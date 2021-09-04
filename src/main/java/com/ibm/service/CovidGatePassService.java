@@ -1,7 +1,6 @@
 package com.ibm.service;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.JsonMappingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.ibm.dao.ASetuToken;
 import com.ibm.dao.Citizen;
@@ -15,11 +14,13 @@ import com.nimbusds.jose.JWSObject;
 import com.nimbusds.jwt.JWTClaimsSet;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.mongodb.core.MongoOperations;
+import org.springframework.data.mongodb.core.query.Criteria;
+import org.springframework.data.mongodb.core.query.Query;
 import org.springframework.http.*;
 import org.springframework.stereotype.Component;
+import org.springframework.web.client.HttpServerErrorException;
 import org.springframework.web.client.RestTemplate;
 
-import java.rmi.ServerException;
 import java.time.Instant;
 import java.util.Collections;
 import java.util.Date;
@@ -42,16 +43,25 @@ public class CovidGatePassService {
     MongoOperations mongoOperations;
 
     public Citizen extractUserStatus(String mobileNumber) {
+        // Search mobile number in database
+        Citizen citizenInfo = citizenRepository.findById(mobileNumber).orElse(null);
+        // If not found, invoke API
+        if(citizenInfo ==null){
+            // Invoke service to extract details from ASetu
+            citizenInfo = this.getUserStatusFromASetu(mobileNumber);
+        }
+        return citizenInfo;
+    }
+    public Citizen getUserStatusFromASetu(String mobileNumber) {
         Citizen citizen = new Citizen();
         RestTemplate restTemplate = new RestTemplate();
         RequestTracker requestTracker = new RequestTracker();
+        ResponseEntity<String> response;
+        String resourceUrl = "https://api.aarogyasetu.gov.in/userstatus";
+        String uniqueID = "IBM_"+UUID.randomUUID().toString();
 
         // Extract token to invoke Aarogya Setu API call
-        String token = null;
-        token = this.extractToken();
-
-        String resourceUrl = "https://api.aarogyasetu.gov.in/userstatus";
-        String uniqueID = UUID.randomUUID().toString().toUpperCase().replace("-", "");
+        String token = this.extractToken();
 
         UserDetails userDetails = new UserDetails();
         userDetails.setPhone_number(mobileNumber);
@@ -65,76 +75,70 @@ public class CovidGatePassService {
         headers.set("Authorization", token);
 
         try {
-            HttpEntity<UserDetails> entity = new HttpEntity<>(userDetails, headers);
-            ResponseEntity<String> response = restTemplate.exchange(resourceUrl, HttpMethod.POST, entity, String.class);
+            // Temporary arrangement until API full access is approved
+            if(mobileNumber.equals("+918969530042")) {
+                HttpEntity<UserDetails> entity = new HttpEntity<>(userDetails, headers);
+                System.out.println("Invoking AAROGYA SETU API for userstatus");
+                response = restTemplate.exchange(resourceUrl, HttpMethod.POST, entity, String.class);
 
-            RequestTracker requestIdTracker = new ObjectMapper().readValue(response.getBody(), RequestTracker.class);
-            String requestId = requestIdTracker.getRequestId();
+                RequestTracker requestIdTracker = new ObjectMapper().readValue(response.getBody(), RequestTracker.class);
+                String requestId = requestIdTracker.getRequestId();
 
-            // Update RequestTracker repository
-            if(requestId !=null) {
-                // Save request details in database
+                // Update RequestTracker repository
+                if (requestId != null) {
+                    // Save request details in database
+                    requestTracker.setTrace_id(uniqueID);
+                    requestTracker.setRequestId(requestId);
+                    requestTracker.setRequest_status("PENDING");
+                    trackerRepository.save(requestTracker);
+
+                    // Save citizen information in database
+                    citizen.setMobileNumber(mobileNumber);
+                    citizen.setCovidStatus("PENDING");
+                    citizen.setRequestId(requestId);
+                    citizenRepository.save(citizen);
+                }
+            }else{
+                // Temporary arrangement until API full access is approved
+                String requestIDTemp = UUID.randomUUID().toString();
+
                 requestTracker.setTrace_id(uniqueID);
-                requestTracker.setRequestId(requestId);
+                requestTracker.setRequestId(requestIDTemp);
                 requestTracker.setRequest_status("PENDING");
                 trackerRepository.save(requestTracker);
 
-                // Save citizen information in database
                 citizen.setMobileNumber(mobileNumber);
                 citizen.setCovidStatus("PENDING");
-                citizen.setRequestId(requestId);
+                citizen.setRequestId(requestIDTemp);
                 citizenRepository.save(citizen);
             }
-
-
-            // Update Citizen repository with request ID
-           /* Query query = new Query();
-            query.addCriteria(Criteria.where("mobileNumber").is(mobileNumber));
-            //query.fields().include("mobileNumber");
-
-            Citizen citizen = mongoOperations.findOne(query, Citizen.class);
-            mongoOperations.save(citizen);*/
-        } catch (Exception e) {
-            e.printStackTrace();
+        } catch (Exception e){
         }
         return citizen;
     }
 
-    public String extractToken() {
+    private String extractToken() {
         String token = null;
         boolean isTokenValid = false;
         List<ASetuToken> aSetuTokenList = tokenRepository.findAll();
         if(!aSetuTokenList.isEmpty()){
 
-            String searchToken= aSetuTokenList.get(aSetuTokenList.size()-1).getToken();
-            System.out.println(searchToken);
-            if(validateToken(searchToken)){
-                token = searchToken;
+            String recentToken = aSetuTokenList.get(aSetuTokenList.size()-1).getToken();
+            if(validateToken(recentToken)){
+                token = recentToken;
                 isTokenValid = true;
-                System.out.println("Extracted token from database");
+                System.out.println("Using token from db");
             }
         }
         // If token is not valid/expired, invoke Aarogya setu API to generate new token
         if(!isTokenValid){
-            ResponseEntity<String> response = this.getTokenFromASetu();
-            if(response.getBody() != null) {
-                ASetuToken aSetuToken = null;
-                try {
-                    aSetuToken = new ObjectMapper().readValue(response.getBody(), ASetuToken.class);
-                } catch (JsonProcessingException e) {
-                    e.printStackTrace();
-                }
-                token = aSetuToken.getToken();
-
-                // Storing token in Database for further use
-                tokenRepository.save(aSetuToken);
-            }
+            token = this.getTokenFromASetu();
         }
         return token;
     }
 
     // TODO validate JWT token for expiry
-    public boolean validateToken(String token) {
+    private boolean validateToken(String token) {
         JWSObject jwsObject;
         JWTClaimsSet claims;
         long tokenValid = 0;
@@ -151,17 +155,19 @@ public class CovidGatePassService {
         }
 
         if(tokenValid > 0 ){
+            System.out.println("Token is still VALID (expiry 1hr)");
             return true;
         }else{
             return false;
         }
     }
 
-    private ResponseEntity<String> getTokenFromASetu(){
+    private String getTokenFromASetu(){
         String resourceUrl = "https://api.aarogyasetu.gov.in/token";
         ResponseEntity<String> response = null;
         UserCredentials userCredentials = new UserCredentials("amit.anand004@gmail.com", "ShikhaBharti@143");
         RestTemplate restTemplate = new RestTemplate();
+        ASetuToken aSetuToken = null;
 
         HttpHeaders headers = new HttpHeaders();
         headers.setAccept(Collections.singletonList(MediaType.APPLICATION_JSON));
@@ -169,18 +175,39 @@ public class CovidGatePassService {
         headers.set("x-api-key", "gvhed11S9z53uDfZvsEni4ScuJx9yu8T9dd3BjL1");
 
         HttpEntity<UserCredentials> entity = new HttpEntity<>(userCredentials, headers);
+        System.out.println("Invoking AAROGYA SETU API for getToken");
         response = restTemplate.exchange(resourceUrl, HttpMethod.POST,entity, String.class);
-        return response;
+
+        if(response.getBody() != null) {
+            try {
+                aSetuToken = new ObjectMapper().readValue(response.getBody(), ASetuToken.class);
+            } catch (JsonProcessingException e) {
+                e.printStackTrace();
+            }
+            // Storing token in Database for further use
+            tokenRepository.save(aSetuToken);
+        }
+        return aSetuToken.getToken();
     }
 
-    public Citizen getUserStatusByRequstId(String requestId){
+    public Citizen getUserStatusByRequstId(String requestId) {
+        Citizen citizen = new Citizen();
+        // Updated Request Tracker DB
+        this.updateRequestTrackerDB(requestId);
+        // Updated Citizen DB
+        citizen = this.updateCitizenDB(requestId);
+        return citizen;
+    }
+
+    // Invoke once Aarogya setu full request is approved
+    public Citizen getUserStatusByRequstIdFromASetu(String requestId) {
         // Extract token to invoke Aarogya Setu API call
-        requestId = "5bcdcda5-2601-4a91-a62c-c2baed0dd334";
+        //requestId = "5bcdcda5-2601-4a91-a62c-c2baed0dd334";
         String token = this.extractToken();
         System.out.println(token);
 
         Citizen citizen = new Citizen();
-
+        ResponseEntity<RequestTracker> response = null;
         RestTemplate restTemplate = new RestTemplate();
 
         String resourceUrl = "https://api.aarogyasetu.gov.in/userstatusbyreqid";
@@ -192,39 +219,48 @@ public class CovidGatePassService {
         headers.set("x-api-key", "gvhed11S9z53uDfZvsEni4ScuJx9yu8T9dd3BjL1");
         headers.set("Authorization", token);
 
-        try {
-            HttpEntity<String> entity = new HttpEntity<>(requestId, headers);
-            ResponseEntity<RequestTracker> response = restTemplate.exchange(resourceUrl, HttpMethod.POST, entity, RequestTracker.class);
-
-            if(response.getStatusCode().equals(HttpStatus.OK)){
-                RequestTracker status =  new ObjectMapper().readValue(response.getBody().toString(), RequestTracker.class);
-                status.getAs_status();
-
-                String temp = "eyJhbGciOiJIUzI1NiJ9.eyJhc19zdGF0dXMiOnsiY29sb3JfY29kZSI6IiMzQUE4NEMiLCJtZXNzYWdlIjoiU2FtcGxlIHVzZXIgKCs5MTk5eHh4eHh4eHgpIGlzIHNhZmUiLCJtb2JpbGVfbm8iOiIrOTE5OXh4eHh4eHh4IiwibmFtZSI6IlNhbXBsZSBVc2VyIiwic3RhdHVzX2NvZGUiOjMwMH19.AYVj3tynLeob2ZqFxOkQZ4D5vWXsUzFjxjIfHYGYoDU";
-
-               /* Citizen citizen = new Citizen();
-                citizen.setName(status.getName());*/
-            }else if(response.getStatusCode().equals(HttpStatus.BAD_REQUEST) || response.getStatusCode().equals(HttpStatus.INTERNAL_SERVER_ERROR)){
-                // TODO handle error message
-                throw new Exception();
-            }
-
-
-
-           /* // Update Citizen repository with request ID
-            Query query = new Query();
-            query.addCriteria(Criteria.where("mobileNumber").is(mobileNumber));
-            //query.fields().include("mobileNumber");
-
-            Citizen citizen = mongoOperations.findOne(query, Citizen.class);
-            citizen.setMobileNumber(mobileNumber);
-            citizen.setCovidStatus("PENDING");
-            citizen.setRequestId(requestId);
-            mongoOperations.save(citizen);*/
-
-        } catch (Exception e) {
-            e.printStackTrace();
+        try{
+            RequestTracker requestTracker = new RequestTracker();
+            requestTracker.setRequestId(requestId);
+            HttpEntity<RequestTracker> entity = new HttpEntity<>(requestTracker, headers);
+            System.out.println("Invoking AAROGYA SETU API userstatusbyreqid");
+            response = restTemplate.exchange(resourceUrl, HttpMethod.POST, entity, RequestTracker.class);
+        }catch (HttpServerErrorException e){
+        }
+        if(response.getStatusCode().equals(HttpStatus.OK)){
+            // TODO Incase of success
+            this.updateRequestTrackerDB(requestId);
+            citizen = this.updateCitizenDB(requestId);
         }
         return citizen;
+    }
+
+    private Citizen updateCitizenDB(String requestId) {
+        Citizen citizen;
+        Query queryCitz = new Query();
+        queryCitz.addCriteria(Criteria.where("requestId").is(requestId));
+
+
+        citizen = mongoOperations.findOne(queryCitz,Citizen.class);
+        citizen.setName("Amit Anand");
+        citizen.setCovidStatus("SAFE");
+        mongoOperations.save(citizen);
+        System.out.println("Successfully updated Citizen db..!! ");
+        return citizen;
+    }
+
+    private void updateRequestTrackerDB(String reqId){
+        String as_Status = "eyJhbGciOiJIUzI1NiJ9.eyJhc19zdGF0dXMiOnsiY29sb3JfY29kZSI6IiMzQUE4NEMiLCJtZXNzYWdlIjoiU2FtcGxlIHVzZXIgKCs5MTg5Njk1MzAwNDIpIGlzIHNhZmUiLCJtb2JpbGVfbm8iOiIrOTE4OTY5NTMwMDQyIiwibmFtZSI6IkFtaXQgQW5hbmQiLCJzdGF0dXNfY29kZSI6MzAwfX0.AYVj3tynLeob2ZqFxOkQZ4D5vWXsUzFjxjIfHYGYoDU";
+
+        Query queryReqTrk = new Query();
+        queryReqTrk.addCriteria(Criteria.where("requestId").is(reqId));
+
+        RequestTracker requestTracker = mongoOperations.findOne(queryReqTrk, RequestTracker.class);
+        requestTracker.setRequest_status("APPROVED");
+        requestTracker.setAs_status("Amit Anand");
+        requestTracker.setAs_status(as_Status);
+        mongoOperations.save(requestTracker);
+
+        System.out.println("Successfully updated RequestTrack db..!! ");
     }
 }

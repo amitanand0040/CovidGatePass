@@ -28,70 +28,17 @@ public class CovidGatePassController {
     private CovidGatePassService covidGatePassService;
 
     @GetMapping("/requestCovidStatus/{mobileNumber}")
-    public String requestCovidStatus(@PathVariable String mobileNumber) {
-        String json = null;
-        String requestId = null;
-        ObjectMapper mapper = new ObjectMapper();
-
+    public Citizen getCovidStatus(@PathVariable String mobileNumber) {
         if(!mobileNumber.startsWith("+91")){
             mobileNumber = "+91"+mobileNumber;
         }
-        // Search mobile number in database
-        Citizen citizenInfo = citizenRepository.findById(mobileNumber).orElse(null);
-
-        if(citizenInfo ==null){
-            // Invoke service to extract details from ASetu
-            citizenInfo = covidGatePassService.extractUserStatus(mobileNumber);
-
-            // IF status is pe
-            if(citizenInfo.getCovidStatus().equals("PENDING")){
-                // TODO Invoke ASetu API with requestID and extract Citizen information
-
-
-            }
-
-            // Search
-            //citizenInfo = citizenRepository.findByRequestId(requestId);
-
-            //citizenInfo = new Citizen(mobileNumber, "NA", "NOT_AVAILABLE");
-        }
-
-        try {
-            json = mapper.writeValueAsString(citizenInfo);
-        }catch (JsonProcessingException e){
-            e.printStackTrace();
-        }
-        return json;
+        Citizen citizenInfo = covidGatePassService.extractUserStatus(mobileNumber);
+        return citizenInfo;
     }
 
-    @PutMapping(path = "/saveCitizen", consumes = MediaType.APPLICATION_JSON_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
-    public ResponseEntity<Citizen> saveCitizenData(@RequestBody Citizen newCitizen) throws ServerException {
-        System.out.println("Saving Citizen data");
-        Citizen citizen = citizenRepository.save(newCitizen);
-
-        if (citizen == null) {
-            throw new ServerException("Error while saving data");
-        }else {
-            return new ResponseEntity<>(citizen, HttpStatus.CREATED);
-        }
-    }
-
-    @GetMapping("/getCitizen")
-    public List<Citizen> getCitizenData(){
-        System.out.println("Retrieving all citizen information");
-        List<Citizen> citizen = citizenRepository.findAll();
+    @GetMapping("/getStatusByReqId/{requestId}")
+    public Citizen getStatusByRequestId(@PathVariable String requestId){
+        Citizen citizen = covidGatePassService.getUserStatusByRequstId(requestId);
         return citizen;
-    }
-
-    @GetMapping("/getToken")
-    public void getTokenFromASetu(){
-
-        String token = covidGatePassService.extractToken();
-        System.out.println(token);
-    }
-
-    @GetMapping("/getStatusByReqId")
-    public void tempTest(){
-        covidGatePassService.getUserStatusByRequstId("123");
     }
 }
