@@ -32,12 +32,26 @@ public class CovidGatePassController {
         String json = null;
         String requestId = null;
         ObjectMapper mapper = new ObjectMapper();
+
+        if(!mobileNumber.startsWith("+91")){
+            mobileNumber = "+91"+mobileNumber;
+        }
+        // Search mobile number in database
         Citizen citizenInfo = citizenRepository.findById(mobileNumber).orElse(null);
 
         if(citizenInfo ==null){
-            requestId = covidGatePassService.extractUserStatus(mobileNumber);
+            // Invoke service to extract details from ASetu
+            citizenInfo = covidGatePassService.extractUserStatus(mobileNumber);
 
-            citizenInfo = citizenRepository.findByRequestId(requestId);
+            // IF status is pe
+            if(citizenInfo.getCovidStatus().equals("PENDING")){
+                // TODO Invoke ASetu API with requestID and extract Citizen information
+
+
+            }
+
+            // Search
+            //citizenInfo = citizenRepository.findByRequestId(requestId);
 
             //citizenInfo = new Citizen(mobileNumber, "NA", "NOT_AVAILABLE");
         }
@@ -71,8 +85,13 @@ public class CovidGatePassController {
 
     @GetMapping("/getToken")
     public void getTokenFromASetu(){
+
         String token = covidGatePassService.extractToken();
         System.out.println(token);
     }
 
+    @GetMapping("/getStatusByReqId")
+    public void tempTest(){
+        covidGatePassService.getUserStatusByRequstId("123");
+    }
 }

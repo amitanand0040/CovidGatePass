@@ -8,6 +8,6 @@ public class CovidGatePassApplication {
 
 	public static void main(String[] args) {
 		SpringApplication.run(CovidGatePassApplication.class, args);
-		System.out.println("I am here");
+		System.out.println("CovidGatePass application started successfully..!!");
 	}
 }
