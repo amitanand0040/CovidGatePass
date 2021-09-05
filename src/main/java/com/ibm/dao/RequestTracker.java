@@ -3,8 +3,6 @@ package com.ibm.dao;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import org.springframework.data.annotation.Id;
 
-import java.time.Instant;
-
 @JsonIgnoreProperties(ignoreUnknown = true)
 public class RequestTracker {
     @Id

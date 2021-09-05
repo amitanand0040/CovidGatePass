@@ -1,6 +1,6 @@
 package com.ibm.Exception;
 
-public class UserStatusException{
+public class UserStatusException {
     public String error_code;
     public String error_message;
 

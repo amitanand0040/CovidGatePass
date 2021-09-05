@@ -27,6 +27,8 @@ import java.util.Date;
 import java.util.List;
 import java.util.UUID;
 
+import static com.ibm.Constant.AppConstant.*;
+
 @Component
 public class CovidGatePassService {
 
@@ -42,7 +44,7 @@ public class CovidGatePassService {
     @Autowired
     MongoOperations mongoOperations;
 
-    public Citizen extractUserStatus(String mobileNumber) {
+    public Citizen getUserCovidStatus(String mobileNumber) {
         // Search mobile number in database
         Citizen citizenInfo = citizenRepository.findById(mobileNumber).orElse(null);
         // If not found, invoke API
@@ -52,13 +54,21 @@ public class CovidGatePassService {
         }
         return citizenInfo;
     }
-    public Citizen getUserStatusFromASetu(String mobileNumber) {
+
+    public Citizen getUserCovidStatusByRequestId(String requestId) {
+        // Updated Request Tracker DB
+        this.updateRequestTrackerDB(requestId);
+        // Updated Citizen DB
+        return this.updateCitizenDB(requestId);
+    }
+
+
+    private Citizen getUserStatusFromASetu(String mobileNumber) {
         Citizen citizen = new Citizen();
         RestTemplate restTemplate = new RestTemplate();
         RequestTracker requestTracker = new RequestTracker();
         ResponseEntity<String> response;
-        String resourceUrl = "https://api.aarogyasetu.gov.in/userstatus";
-        String uniqueID = "IBM_"+UUID.randomUUID().toString();
+        String uniqueID = "IBM_"+UUID.randomUUID();
 
         // Extract token to invoke Aarogya Setu API call
         String token = this.extractToken();
@@ -79,7 +89,7 @@ public class CovidGatePassService {
             if(mobileNumber.equals("+918969530042")) {
                 HttpEntity<UserDetails> entity = new HttpEntity<>(userDetails, headers);
                 System.out.println("Invoking AAROGYA SETU API for userstatus");
-                response = restTemplate.exchange(resourceUrl, HttpMethod.POST, entity, String.class);
+                response = restTemplate.exchange(AAROGYA_SETU_USERSTATUS_URI, HttpMethod.POST, entity, String.class);
 
                 RequestTracker requestIdTracker = new ObjectMapper().readValue(response.getBody(), RequestTracker.class);
                 String requestId = requestIdTracker.getRequestId();
@@ -113,6 +123,7 @@ public class CovidGatePassService {
                 citizenRepository.save(citizen);
             }
         } catch (Exception e){
+            e.printStackTrace();
         }
         return citizen;
     }
@@ -163,7 +174,6 @@ public class CovidGatePassService {
     }
 
     private String getTokenFromASetu(){
-        String resourceUrl = "https://api.aarogyasetu.gov.in/token";
         ResponseEntity<String> response = null;
         UserCredentials userCredentials = new UserCredentials("amit.anand004@gmail.com", "ShikhaBharti@143");
         RestTemplate restTemplate = new RestTemplate();
@@ -176,7 +186,7 @@ public class CovidGatePassService {
 
         HttpEntity<UserCredentials> entity = new HttpEntity<>(userCredentials, headers);
         System.out.println("Invoking AAROGYA SETU API for getToken");
-        response = restTemplate.exchange(resourceUrl, HttpMethod.POST,entity, String.class);
+        response = restTemplate.exchange(AAROGYA_SETU_GETTOKEN_URI, HttpMethod.POST,entity, String.class);
 
         if(response.getBody() != null) {
             try {
@@ -190,14 +200,6 @@ public class CovidGatePassService {
         return aSetuToken.getToken();
     }
 
-    public Citizen getUserStatusByRequstId(String requestId) {
-        Citizen citizen = new Citizen();
-        // Updated Request Tracker DB
-        this.updateRequestTrackerDB(requestId);
-        // Updated Citizen DB
-        citizen = this.updateCitizenDB(requestId);
-        return citizen;
-    }
 
     // Invoke once Aarogya setu full request is approved
     public Citizen getUserStatusByRequstIdFromASetu(String requestId) {
@@ -209,8 +211,6 @@ public class CovidGatePassService {
         Citizen citizen = new Citizen();
         ResponseEntity<RequestTracker> response = null;
         RestTemplate restTemplate = new RestTemplate();
-
-        String resourceUrl = "https://api.aarogyasetu.gov.in/userstatusbyreqid";
         //String uniqueID = UUID.randomUUID().toString().toUpperCase().replace("-", "");
 
         HttpHeaders headers = new HttpHeaders();
@@ -224,7 +224,7 @@ public class CovidGatePassService {
             requestTracker.setRequestId(requestId);
             HttpEntity<RequestTracker> entity = new HttpEntity<>(requestTracker, headers);
             System.out.println("Invoking AAROGYA SETU API userstatusbyreqid");
-            response = restTemplate.exchange(resourceUrl, HttpMethod.POST, entity, RequestTracker.class);
+            response = restTemplate.exchange(AAROGYA_SETU_STATUS_BY_REQUESTID_URI, HttpMethod.POST, entity, RequestTracker.class);
         }catch (HttpServerErrorException e){
         }
         if(response.getStatusCode().equals(HttpStatus.OK)){
@@ -250,7 +250,8 @@ public class CovidGatePassService {
     }
 
     private void updateRequestTrackerDB(String reqId){
-        String as_Status = "eyJhbGciOiJIUzI1NiJ9.eyJhc19zdGF0dXMiOnsiY29sb3JfY29kZSI6IiMzQUE4NEMiLCJtZXNzYWdlIjoiU2FtcGxlIHVzZXIgKCs5MTg5Njk1MzAwNDIpIGlzIHNhZmUiLCJtb2JpbGVfbm8iOiIrOTE4OTY5NTMwMDQyIiwibmFtZSI6IkFtaXQgQW5hbmQiLCJzdGF0dXNfY29kZSI6MzAwfX0.AYVj3tynLeob2ZqFxOkQZ4D5vWXsUzFjxjIfHYGYoDU";
+        String as_Status = "eyJhbGciOiJIUzI1NiJ9.eyJhc19zdGF0dXMiOnsiY29sb3JfY29kZSI6IiMzQUE4NEMiLCJtZXNzYWdlIjoiU2FtcGxlIHVzZXIgKCs5MTg5Njk1MzAwNDIpIGlzIHNhZ" +
+                "mUiLCJtb2JpbGVfbm8iOiIrOTE4OTY5NTMwMDQyIiwibmFtZSI6IkFtaXQgQW5hbmQiLCJzdGF0dXNfY29kZSI6MzAwfX0.AYVj3tynLeob2ZqFxOkQZ4D5vWXsUzFjxjIfHYGYoDU";
 
         Query queryReqTrk = new Query();
         queryReqTrk.addCriteria(Criteria.where("requestId").is(reqId));
