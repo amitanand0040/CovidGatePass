@@ -1,0 +1,16 @@
+# Default ignored files
+/shelf/
+/workspace.xml
+
+target/
+.mvn/
+
+.project
+
+### IntelliJ IDEA ###
+.idea
+.DS_Store
+.iml
+.ipr
+mvnw.*
+mvnw
