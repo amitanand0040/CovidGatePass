@@ -50,8 +50,10 @@ public class CovidGatePassService {
         // If not found, invoke API
         if(citizenInfo ==null){
             // Invoke service to extract details from ASetu
-            System.out.println("Citizen information not available in db");
+            System.out.println("Citizen information NOT available in db");
             citizenInfo = this.getUserStatusFromASetu(mobileNumber);
+        }else{
+            System.out.println("Fetching Citizen information from db");
         }
         return citizenInfo;
     }
@@ -112,7 +114,7 @@ public class CovidGatePassService {
                 }
             }else{
                 // Temporary arrangement until API full access is approved
-                System.out.println("Fetching userstatus from API");
+                System.out.println("Fetching Citizen status from API");
                 String requestIDTemp = UUID.randomUUID().toString();
 
                 requestTracker.setTrace_id(uniqueID);
@@ -125,7 +127,7 @@ public class CovidGatePassService {
                 citizen.setRequestId(requestIDTemp);
                 citizenRepository.save(citizen);
             }
-            System.out.println("Saved user status in Citizen and RequestTracker db");
+            System.out.println("Successfully updated Citizen db..!!");
         } catch (Exception e){
             e.printStackTrace();
         }
@@ -137,16 +139,17 @@ public class CovidGatePassService {
         boolean isTokenValid = false;
         List<ASetuToken> aSetuTokenList = tokenRepository.findAll();
         if(!aSetuTokenList.isEmpty()){
-
+            System.out.println("Token available in db");
             String recentToken = aSetuTokenList.get(aSetuTokenList.size()-1).getToken();
             if(validateToken(recentToken)){
                 token = recentToken;
                 isTokenValid = true;
-                System.out.println("Valid token available in db");
+
             }
         }
         // If token is not valid/expired, invoke Aarogya setu API to generate new token
         if(!isTokenValid){
+            System.out.println("Expired Token in db");
             token = this.getTokenFromASetu();
         }
         return token;
@@ -189,7 +192,7 @@ public class CovidGatePassService {
         headers.set("x-api-key", "gvhed11S9z53uDfZvsEni4ScuJx9yu8T9dd3BjL1");
 
         HttpEntity<UserCredentials> entity = new HttpEntity<>(userCredentials, headers);
-        System.out.println("Invoking AAROGYA SETU API for get security Token for further invocations");
+        System.out.println("Invoking ASETU API for fetching Token for further API invocations");
         response = restTemplate.exchange(AAROGYA_SETU_GETTOKEN_URI, HttpMethod.POST,entity, String.class);
 
         if(response.getBody() != null) {
@@ -236,6 +239,7 @@ public class CovidGatePassService {
             this.updateRequestTrackerDB(requestId);
             citizen = this.updateCitizenDB(requestId);
         }
+        System.out.println("Successfully updated Citizen information in db..!!");
         return citizen;
     }
 
@@ -246,10 +250,20 @@ public class CovidGatePassService {
 
 
         citizen = mongoOperations.findOne(queryCitz,Citizen.class);
-        citizen.setName("Amit Anand");
-        citizen.setCovidStatus("PARTIALLY VACCINATED");
+
+        if(citizen.getMobileNumber().contains("8969530041")){
+            citizen.setName("Shikha Anand");
+            citizen.setCovidStatus("FULLY VACCINATED");
+        } else if(citizen.getMobileNumber().contains("8969530040")){
+            citizen.setName("Ayansh Anand");
+            citizen.setCovidStatus("NOT VACCINATED");
+        } else{
+            citizen.setName("Amit Anand");
+            citizen.setCovidStatus("PARTIALLY VACCINATED");
+        }
+
         mongoOperations.save(citizen);
-        System.out.println("Successfully updated Citizen db..!! ");
+        System.out.println("Successfully updated Citizen information in db..!!");
         return citizen;
     }
 
@@ -265,7 +279,5 @@ public class CovidGatePassService {
         requestTracker.setAs_status("Amit Anand");
         requestTracker.setAs_status(as_Status);
         mongoOperations.save(requestTracker);
-
-        System.out.println("Successfully updated RequestTrack db..!! ");
     }
 }

@@ -18,6 +18,7 @@ public class CovidGatePassController {
         if(!mobileNumber.startsWith("+91")){
             mobileNumber = "+91"+mobileNumber;
         }
+        System.out.println("Extracting Citizen information for "+mobileNumber);
         return covidGatePassService.getUserCovidStatus(mobileNumber);
     }
 
