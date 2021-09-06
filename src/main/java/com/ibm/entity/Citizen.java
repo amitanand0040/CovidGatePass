@@ -1,4 +1,4 @@
-package com.ibm.dao;
+package com.ibm.entity;
 
 import org.springframework.data.annotation.Id;
 

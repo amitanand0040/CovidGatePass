@@ -1,6 +1,6 @@
 package com.ibm.repository;
 
-import com.ibm.dao.Citizen;
+import com.ibm.entity.Citizen;
 import org.springframework.data.mongodb.repository.MongoRepository;
 
 

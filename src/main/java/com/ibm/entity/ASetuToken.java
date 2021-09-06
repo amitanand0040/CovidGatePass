@@ -1,4 +1,4 @@
-package com.ibm.dao;
+package com.ibm.entity;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import org.springframework.data.annotation.Id;

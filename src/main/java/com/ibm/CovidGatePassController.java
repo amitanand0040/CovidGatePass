@@ -1,6 +1,6 @@
 package com.ibm;
 
-import com.ibm.dao.Citizen;
+import com.ibm.entity.Citizen;
 import com.ibm.service.CovidGatePassService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.GetMapping;

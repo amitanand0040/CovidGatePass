@@ -2,9 +2,9 @@ package com.ibm.service;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.ibm.dao.ASetuToken;
-import com.ibm.dao.Citizen;
-import com.ibm.dao.RequestTracker;
+import com.ibm.entity.ASetuToken;
+import com.ibm.entity.Citizen;
+import com.ibm.entity.RequestTracker;
 import com.ibm.model.UserCredentials;
 import com.ibm.model.UserDetails;
 import com.ibm.repository.CitizenRepository;
@@ -50,6 +50,7 @@ public class CovidGatePassService {
         // If not found, invoke API
         if(citizenInfo ==null){
             // Invoke service to extract details from ASetu
+            System.out.println("Citizen information not available in db");
             citizenInfo = this.getUserStatusFromASetu(mobileNumber);
         }
         return citizenInfo;
@@ -57,6 +58,7 @@ public class CovidGatePassService {
 
     public Citizen getUserCovidStatusByRequestId(String requestId) {
         // Updated Request Tracker DB
+        System.out.println("Extracting user status by requestId from API");
         this.updateRequestTrackerDB(requestId);
         // Updated Citizen DB
         return this.updateCitizenDB(requestId);
@@ -88,7 +90,7 @@ public class CovidGatePassService {
             // Temporary arrangement until API full access is approved
             if(mobileNumber.equals("+918969530042")) {
                 HttpEntity<UserDetails> entity = new HttpEntity<>(userDetails, headers);
-                System.out.println("Invoking AAROGYA SETU API for userstatus");
+                System.out.println("Invoking AAROGYA SETU API for fetching userstatus");
                 response = restTemplate.exchange(AAROGYA_SETU_USERSTATUS_URI, HttpMethod.POST, entity, String.class);
 
                 RequestTracker requestIdTracker = new ObjectMapper().readValue(response.getBody(), RequestTracker.class);
@@ -110,6 +112,7 @@ public class CovidGatePassService {
                 }
             }else{
                 // Temporary arrangement until API full access is approved
+                System.out.println("Fetching userstatus from API");
                 String requestIDTemp = UUID.randomUUID().toString();
 
                 requestTracker.setTrace_id(uniqueID);
@@ -122,6 +125,7 @@ public class CovidGatePassService {
                 citizen.setRequestId(requestIDTemp);
                 citizenRepository.save(citizen);
             }
+            System.out.println("Saved user status in Citizen and RequestTracker db");
         } catch (Exception e){
             e.printStackTrace();
         }
@@ -138,7 +142,7 @@ public class CovidGatePassService {
             if(validateToken(recentToken)){
                 token = recentToken;
                 isTokenValid = true;
-                System.out.println("Using token from db");
+                System.out.println("Valid token available in db");
             }
         }
         // If token is not valid/expired, invoke Aarogya setu API to generate new token
@@ -185,7 +189,7 @@ public class CovidGatePassService {
         headers.set("x-api-key", "gvhed11S9z53uDfZvsEni4ScuJx9yu8T9dd3BjL1");
 
         HttpEntity<UserCredentials> entity = new HttpEntity<>(userCredentials, headers);
-        System.out.println("Invoking AAROGYA SETU API for getToken");
+        System.out.println("Invoking AAROGYA SETU API for get security Token for further invocations");
         response = restTemplate.exchange(AAROGYA_SETU_GETTOKEN_URI, HttpMethod.POST,entity, String.class);
 
         if(response.getBody() != null) {
@@ -243,7 +247,7 @@ public class CovidGatePassService {
 
         citizen = mongoOperations.findOne(queryCitz,Citizen.class);
         citizen.setName("Amit Anand");
-        citizen.setCovidStatus("SAFE");
+        citizen.setCovidStatus("PARTIALLY VACCINATED");
         mongoOperations.save(citizen);
         System.out.println("Successfully updated Citizen db..!! ");
         return citizen;
