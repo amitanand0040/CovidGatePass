@@ -22,10 +22,7 @@ import org.springframework.web.client.HttpServerErrorException;
 import org.springframework.web.client.RestTemplate;
 
 import java.time.Instant;
-import java.util.Collections;
-import java.util.Date;
-import java.util.List;
-import java.util.UUID;
+import java.util.*;
 
 import static com.ibm.Constant.AppConstant.*;
 
@@ -85,7 +82,7 @@ public class CovidGatePassService {
         HttpHeaders headers = new HttpHeaders();
         headers.setAccept(Collections.singletonList(MediaType.APPLICATION_JSON));
         headers.setContentType(MediaType.APPLICATION_JSON);
-        headers.set("x-api-key", "gvhed11S9z53uDfZvsEni4ScuJx9yu8T9dd3BjL1");
+        headers.set("x-api-key", decoder(AAROGYA_SETU_CRED3));
         headers.set("Authorization", token);
 
         try {
@@ -182,14 +179,14 @@ public class CovidGatePassService {
 
     private String getTokenFromASetu(){
         ResponseEntity<String> response = null;
-        UserCredentials userCredentials = new UserCredentials("amit.anand004@gmail.com", "ShikhaBharti@143");
+        UserCredentials userCredentials = new UserCredentials(decoder(AAROGYA_SETU_CRED1), decoder(AAROGYA_SETU_CRED2));
         RestTemplate restTemplate = new RestTemplate();
         ASetuToken aSetuToken = null;
 
         HttpHeaders headers = new HttpHeaders();
         headers.setAccept(Collections.singletonList(MediaType.APPLICATION_JSON));
         headers.setContentType(MediaType.APPLICATION_JSON);
-        headers.set("x-api-key", "gvhed11S9z53uDfZvsEni4ScuJx9yu8T9dd3BjL1");
+        headers.set("x-api-key", decoder(AAROGYA_SETU_CRED3));
 
         HttpEntity<UserCredentials> entity = new HttpEntity<>(userCredentials, headers);
         System.out.println("Invoking ASETU API for fetching Token for further API invocations");
@@ -223,7 +220,7 @@ public class CovidGatePassService {
         HttpHeaders headers = new HttpHeaders();
         headers.setAccept(Collections.singletonList(MediaType.APPLICATION_JSON));
         headers.setContentType(MediaType.APPLICATION_JSON);
-        headers.set("x-api-key", "gvhed11S9z53uDfZvsEni4ScuJx9yu8T9dd3BjL1");
+        headers.set("x-api-key", decoder(AAROGYA_SETU_CRED3));
         headers.set("Authorization", token);
 
         try{
@@ -279,5 +276,10 @@ public class CovidGatePassService {
         requestTracker.setAs_status("Amit Anand");
         requestTracker.setAs_status(as_Status);
         mongoOperations.save(requestTracker);
+    }
+
+    private String decoder(String input){
+        String decoded = new String(Base64.getDecoder().decode(input));
+        return decoded;
     }
 }
